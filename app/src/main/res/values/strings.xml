@@ -1,0 +1,4 @@
+<resources>
+    <string name="app_name">NavigationTests</string>
+    <string name="unknown_username">Username is not known, try again</string>
+</resources>
