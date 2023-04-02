@@ -9,14 +9,12 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -24,12 +22,11 @@ import kotlinx.coroutines.launch
 
 @Composable
 fun LoginScreen(
+    onLoginClick: () -> Unit,
+    onUsernameInputChange: (String) -> Unit,
     popBackStack: () -> Unit,
-    diContainer: DiContainer = LocalDiContainer.current,
-    viewModel: LoginViewModel = viewModel { LoginViewModel(diContainer) }
+    currentState: LoginViewModel.UiState
 ) {
-    val currentState = viewModel.uiState.collectAsState().value
-
     LaunchedEffect (currentState.done) {
         if (currentState.done) {
             popBackStack()
@@ -49,8 +46,8 @@ fun LoginScreen(
                     Text(text = stringResource(currentState.error))
                 }
 
-                TextField(value = currentState.currentUsernameInput, onValueChange = viewModel::onUsernameInputChange)
-                Button(onClick = viewModel::onLoginClick) {
+                TextField(value = currentState.currentUsernameInput, onValueChange = onUsernameInputChange)
+                Button(onClick = onLoginClick) {
                     Text("Login")
                 }
             }
@@ -72,15 +69,24 @@ class LoginViewModel(
     )
     val uiState = _uiState.asStateFlow()
 
+    init {
+        viewModelScope.launch {
+            userRepository.loggedInUser.collect { userState ->
+                when (userState) {
+                    is UserRepository.UserState.Loading -> _uiState.update { it.copy(loading = true) }
+                    is UserRepository.UserState.LoggedIn -> _uiState.update { it.copy(loading = false, done = true) }
+                    is UserRepository.UserState.LoggedOut -> Unit
+                }
+            }
+        }
+    }
+
     fun onLoginClick() {
         viewModelScope.launch {
             _uiState.update { it.copy(loading = true) }
             userRepository.login(_uiState.value.currentUsernameInput)
                 .onFailure {
                     _uiState.update { it.copy(error = R.string.unknown_username, loading = false) }
-                }
-                .onSuccess {
-                    _uiState.update { it.copy(done = true, loading = false) }
                 }
         }
     }

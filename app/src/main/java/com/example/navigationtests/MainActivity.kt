@@ -2,12 +2,19 @@ package com.example.navigationtests
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NamedNavArgument
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDeepLink
@@ -17,8 +24,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.navigationtests.ui.theme.NavigationTestsTheme
-
-val LocalDiContainer = staticCompositionLocalOf<DiContainer> { error("No DI Container provided") }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,7 +57,7 @@ fun MainComposable() {
      *
      * There's probably a better way..
      */
-    fun NavGraphBuilder.authenticated(
+    fun NavGraphBuilder.authenticatedComposable(
         route: String,
         arguments: List<NamedNavArgument> = emptyList(),
         deepLinks: List<NavDeepLink> = emptyList(),
@@ -75,18 +80,42 @@ fun MainComposable() {
         navController = navController,
         startDestination = "home",
     ) {
-        authenticated("home") {
+        authenticatedComposable("home") {
+            val diContainer: DiContainer = LocalDiContainer.current
+            val viewModel: HomeViewModel = viewModel { HomeViewModel(diContainer) }
+            val state = viewModel.uiState.collectAsState().value
+
             HomeScreen(
-                navigateToSettings = { navController.navigate("settings") }
+                navigateToSettings = { navController.navigate("settings") },
+                onLogoutClick = viewModel::onLogoutClick,
+                state = state
             )
         }
 
-        authenticated("settings") {
-            SettingsScreen()
+        authenticatedComposable("settings") {
+            val diContainer: DiContainer = LocalDiContainer.current
+            val viewModel: HomeViewModel = viewModel { HomeViewModel(diContainer) }
+            val state = viewModel.uiState.collectAsState().value
+            SettingsScreen(
+                state = state,
+                onLogoutClick = viewModel::onLogoutClick
+            )
         }
 
         composable("login") {
+            val diContainer: DiContainer = LocalDiContainer.current
+            val viewModel: LoginViewModel = viewModel { LoginViewModel(diContainer) }
+            val currentState = viewModel.uiState.collectAsState().value
+
+            BackHandler {
+                // No op: user can't leave this screen without logging in
+                // We could maybe let him put app on background or similar
+            }
+
             LoginScreen(
+                currentState = currentState,
+                onLoginClick = viewModel::onLoginClick,
+                onUsernameInputChange = viewModel::onUsernameInputChange,
                 popBackStack = navController::popBackStack
             )
         }
@@ -101,15 +130,22 @@ private fun NavBackStackEntry.Authenticated(
     val diContainer = LocalDiContainer.current
     val userRepo = remember { diContainer.userRepository }
 
-    LaunchedEffect(this) {
-        userRepo.loggedInUser.collect { loggedInUser ->
-            if (loggedInUser == null) {
+    when (val userState = userRepo.loggedInUser.collectAsState().value) {
+        is UserRepository.UserState.Loading -> Box(Modifier.fillMaxSize()) {
+            Text(
+                modifier = Modifier.align(Alignment.Center),
+                text = "Loading auth state..."
+            )
+        }
+
+        is UserRepository.UserState.LoggedOut -> {
+            LaunchedEffect(userState) {
                 navigateToLogin()
             }
         }
-    }
 
-    screenComposable(this)
+        is UserRepository.UserState.LoggedIn -> screenComposable(this)
+    }
 }
 
 private fun Collection<NavBackStackEntry>.print(prefix: String = "stack") {

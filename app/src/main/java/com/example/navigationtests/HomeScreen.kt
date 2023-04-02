@@ -5,26 +5,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import androidx.lifecycle.viewmodel.compose.viewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-
 @Composable
 fun HomeScreen(
     navigateToSettings: () -> Unit,
-    diContainer: DiContainer = LocalDiContainer.current,
-    viewModel: HomeViewModel = viewModel { HomeViewModel(diContainer) }
+    onLogoutClick: () -> Unit,
+    state: HomeViewModel.UiState?,
 ) {
-    val state = viewModel.uiState.collectAsState().value
-
     Box(Modifier.fillMaxSize()) {
 
         if (state == null) {
@@ -37,7 +32,7 @@ fun HomeScreen(
 
             Button(
                 modifier = Modifier.align(Alignment.TopEnd),
-                onClick = viewModel::onLogoutClick
+                onClick = onLogoutClick
             ) {
                 Text("Logout")
             }
@@ -61,12 +56,17 @@ class HomeViewModel(
 
     init {
         viewModelScope.launch {
-            userRepository.loggedInUser.collect { user ->
-                if (user == null) {
-                    _uiState.update { null }
-                } else {
-                    _uiState.update { UiState(user.username, user.firstName, user.lastName) }
+            userRepository.loggedInUser.collect { userState ->
+                val newState = when (userState) {
+                    is UserRepository.UserState.LoggedIn -> UiState(
+                        userState.user.username,
+                        userState.user.firstName,
+                        userState.user.lastName
+                    )
+                    is UserRepository.UserState.Loading,
+                    is UserRepository.UserState.LoggedOut -> null
                 }
+                _uiState.update { newState }
             }
         }
     }

@@ -6,17 +6,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.lifecycle.viewmodel.compose.viewModel
 
 @Composable
 fun SettingsScreen(
-    diContainer: DiContainer = LocalDiContainer.current,
-    viewModel: HomeViewModel = viewModel { HomeViewModel(diContainer) }
+    state: HomeViewModel.UiState?,
+    onLogoutClick: () -> Unit
 ) {
-    val state = viewModel.uiState.collectAsState().value
     Box(Modifier.fillMaxSize()) {
 
         if (state == null) {
@@ -29,7 +26,7 @@ fun SettingsScreen(
                 )
 
                 Button(
-                    onClick = viewModel::onLogoutClick
+                    onClick = onLogoutClick
                 ) {
                     Text("Logout")
                 }
