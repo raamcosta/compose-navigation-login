@@ -4,7 +4,7 @@
     <style name="Theme.NavigationTests.SplashScreen" parent="Theme.SplashScreen">
         <item name="postSplashScreenTheme">@style/Theme.NavigationTests</item>
     </style>
-
+    
     <style name="Theme.NavigationTests" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@color/purple_700</item>
     </style>
