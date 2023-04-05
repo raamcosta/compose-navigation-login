@@ -1,6 +1,7 @@
 package com.example.navigationtests
 
 import android.content.SharedPreferences
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -9,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
 
 /**
  * This is NOT how would do it in a real app! Just in case that wasn't clear :D
@@ -28,7 +28,8 @@ class UserRepository(
 
     init {
         coroutineScope.launch {
-            delay(500) // simulating something that takes a bit longer
+            // Splash screen will stay on while the auth status is determined
+            delay(2.seconds) // simulating something that takes a bit longer
             val loggedInUser = sharedPreferences.getString(LOGGED_IN_USERNAME_KEY, null)
                 ?.let { username ->
                     knownUsers.find { it.username == username }

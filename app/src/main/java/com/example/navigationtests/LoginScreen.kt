@@ -34,7 +34,7 @@ fun LoginScreen(
 ) {
     BackHandler {
         // No op: user can't leave this screen without logging in
-        // We could maybe let him put app on background or similar
+        // We could maybe let them put app on background or similar
     }
 
     val currentState = viewModel.uiState.collectAsState().value
@@ -54,7 +54,7 @@ fun LoginScreenContent(
     popBackStack: () -> Unit,
     currentState: LoginViewModel.UiState
 ) {
-    LaunchedEffect (currentState.done) {
+    LaunchedEffect(currentState.done) {
         if (currentState.done) {
             popBackStack()
         }
