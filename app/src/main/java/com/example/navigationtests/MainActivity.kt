@@ -3,18 +3,12 @@ package com.example.navigationtests
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
+import androidx.core.splashscreen.SplashScreen
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -26,6 +20,8 @@ import androidx.navigation.compose.rememberNavController
 import com.example.navigationtests.destinations.LoginScreenDestination
 import com.example.navigationtests.ui.theme.NavigationTestsTheme
 import com.ramcosta.composedestinations.DestinationsNavHost
+import com.ramcosta.composedestinations.navigation.navigate
+import com.ramcosta.composedestinations.navigation.popUpTo
 import com.ramcosta.composedestinations.scope.DestinationScope
 import com.ramcosta.composedestinations.wrapper.DestinationWrapper
 import kotlinx.coroutines.flow.first
@@ -35,9 +31,24 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
-        val diContainer = (applicationContext as App).diContainer
-        val userRepository = diContainer.userRepository
-        var userState by mutableStateOf(userRepository.loggedInUser.value)
+
+        val diContainer = (application as App).diContainer
+        splashScreen.showWhileCheckingLoginState(diContainer.userRepository)
+
+        setContent {
+            NavigationTestsTheme {
+                CompositionLocalProvider(LocalDiContainer provides diContainer) {
+                    MainComposable()
+                }
+            }
+        }
+    }
+
+    private fun SplashScreen.showWhileCheckingLoginState(
+        userRepository: UserRepository,
+    ) {
+        var userState = userRepository.loggedInUser.value
+
         lifecycleScope.launch {
             lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 val determinedUserState = userRepository
@@ -46,18 +57,10 @@ class MainActivity : ComponentActivity() {
                 userState = determinedUserState
             }
         }
+
         // Keep the splash screen on-screen until the auth status is determined.
-        splashScreen.setKeepOnScreenCondition {
+        setKeepOnScreenCondition {
             userState == UserRepository.UserState.Loading
-        }
-        setContent {
-            NavigationTestsTheme {
-                CompositionLocalProvider(
-                    LocalDiContainer provides diContainer
-                ) {
-                    MainComposable()
-                }
-            }
         }
     }
 }
@@ -84,16 +87,18 @@ object AuthenticatedScreenWrapper : DestinationWrapper {
         val diContainer = LocalDiContainer.current
         val userRepo = remember(diContainer) { diContainer.userRepository }
         val userState by userRepo.loggedInUser.collectAsStateWithLifecycle()
+
         when (userState) {
-            is UserRepository.UserState.Loading -> Box(Modifier.fillMaxSize()) {
-                Text(
-                    modifier = Modifier.align(Alignment.Center),
-                    text = "Loading auth state..."
-                )
-            }
+            is UserRepository.UserState.Loading -> Unit
             is UserRepository.UserState.LoggedOut -> {
                 LaunchedEffect(userState) {
-                    destinationsNavigator.navigate(LoginScreenDestination)
+                    navController.navigate(LoginScreenDestination) {
+                        popUpTo(NavGraphs.root) {
+                            saveState = true
+                        }
+
+                        launchSingleTop = true
+                    }
                 }
             }
             is UserRepository.UserState.LoggedIn -> screenContent()
