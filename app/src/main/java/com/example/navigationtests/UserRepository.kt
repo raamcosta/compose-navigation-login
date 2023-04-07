@@ -35,12 +35,20 @@ class UserRepository(
                     knownUsers.find { it.username == username }
                 }
 
-            if (loggedInUser == null) {
+            if (loggedInUser == null || isTokenExpired()) {
                 _loggedInUser.update { UserState.LoggedOut }
             } else {
                 _loggedInUser.update { UserState.LoggedIn(loggedInUser) }
             }
         }
+    }
+
+    private fun isTokenExpired(): Boolean {
+        val timestamp = sharedPreferences.getLong(LOGGED_IN_TIMESTAMP, -1)
+            .takeIf { it != -1L }
+            ?: return false
+
+        return System.currentTimeMillis() - timestamp > LOGGED_IN_TOKEN_TTL
     }
 
     suspend fun login(username: String): Result<User> {
@@ -62,6 +70,7 @@ class UserRepository(
     private fun persistLoggedOutState() {
         sharedPreferences.edit().apply {
             remove(LOGGED_IN_USERNAME_KEY)
+            remove(LOGGED_IN_TIMESTAMP)
             apply()
         }
     }
@@ -69,6 +78,7 @@ class UserRepository(
     private fun persistLoggedInState(username: String) {
         sharedPreferences.edit().apply {
             putString(LOGGED_IN_USERNAME_KEY, username)
+            putLong(LOGGED_IN_TIMESTAMP, System.currentTimeMillis())
             apply()
         }
     }
@@ -84,6 +94,8 @@ class UserRepository(
 
     companion object {
         private const val LOGGED_IN_USERNAME_KEY = "LOGGED_IN_USERNAME_KEY"
+        private const val LOGGED_IN_TIMESTAMP = "LOGGED_IN_TIMESTAMP"
+        private const val LOGGED_IN_TOKEN_TTL = 5000
 
         private val knownUsers = listOf(
             User(

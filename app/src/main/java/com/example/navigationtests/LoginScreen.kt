@@ -1,6 +1,5 @@
 package com.example.navigationtests
 
-import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -10,7 +9,7 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -18,8 +17,10 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.navigationtests.destinations.HomeScreenDestination
 import com.ramcosta.composedestinations.annotation.Destination
 import com.ramcosta.composedestinations.navigation.DestinationsNavigator
+import com.ramcosta.composedestinations.navigation.popUpTo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -32,17 +33,18 @@ fun LoginScreen(
     diContainer: DiContainer = LocalDiContainer.current,
     viewModel: LoginViewModel = viewModel { LoginViewModel(diContainer) }
 ) {
-    BackHandler {
-        // No op: user can't leave this screen without logging in
-        // We could maybe let them put app on background or similar
-    }
 
-    val currentState = viewModel.uiState.collectAsState().value
+    val currentState = viewModel.uiState.collectAsStateWithLifecycle().value
 
     LoginScreenContent(
         onLoginClick = viewModel::onLoginClick,
         onUsernameInputChange = viewModel::onUsernameInputChange,
-        popBackStack = destinationsNavigator::popBackStack,
+        onLoginComplete = {
+            destinationsNavigator.navigate(HomeScreenDestination) {
+                popUpTo(NavGraphs.root)
+                restoreState = true
+            }
+        },
         currentState = currentState
     )
 }
@@ -51,12 +53,12 @@ fun LoginScreen(
 fun LoginScreenContent(
     onLoginClick: () -> Unit,
     onUsernameInputChange: (String) -> Unit,
-    popBackStack: () -> Unit,
+    onLoginComplete: () -> Unit,
     currentState: LoginViewModel.UiState
 ) {
     LaunchedEffect(currentState.done) {
         if (currentState.done) {
-            popBackStack()
+            onLoginComplete()
         }
     }
 
@@ -64,7 +66,11 @@ fun LoginScreenContent(
 
     Box(Modifier.fillMaxSize()) {
         if (currentState.loading) {
-            Text(modifier = Modifier.align(Alignment.Center), textAlign = TextAlign.Center, text = "Logging in...")
+            Text(
+                modifier = Modifier.align(Alignment.Center),
+                textAlign = TextAlign.Center,
+                text = "Logging in..."
+            )
         } else {
             Column(
                 modifier = Modifier.align(Alignment.Center)
@@ -73,7 +79,10 @@ fun LoginScreenContent(
                     Text(text = stringResource(currentState.error))
                 }
 
-                TextField(value = currentState.currentUsernameInput, onValueChange = onUsernameInputChange)
+                TextField(
+                    value = currentState.currentUsernameInput,
+                    onValueChange = onUsernameInputChange
+                )
                 Button(onClick = onLoginClick) {
                     Text("Login")
                 }
@@ -101,7 +110,12 @@ class LoginViewModel(
             userRepository.loggedInUser.collect { userState ->
                 when (userState) {
                     is UserRepository.UserState.Loading -> _uiState.update { it.copy(loading = true) }
-                    is UserRepository.UserState.LoggedIn -> _uiState.update { it.copy(loading = false, done = true) }
+                    is UserRepository.UserState.LoggedIn -> _uiState.update {
+                        it.copy(
+                            loading = false,
+                            done = true
+                        )
+                    }
                     is UserRepository.UserState.LoggedOut -> Unit
                 }
             }

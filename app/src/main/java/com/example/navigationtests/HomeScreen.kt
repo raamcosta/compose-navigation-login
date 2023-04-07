@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.Button
 import androidx.compose.material.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModel
@@ -31,7 +31,7 @@ fun HomeScreen(
     viewModel: HomeViewModel = viewModel { HomeViewModel(diContainer) }
 ) {
 
-    val state = viewModel.uiState.collectAsState().value
+    val state = viewModel.uiState.collectAsStateWithLifecycle().value
 
     HomeScreenContent(
         navigateToSettings = { navigator.navigate(SettingsScreenDestination) },
