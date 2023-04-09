@@ -1,6 +1,7 @@
 package com.example.navigationtests
 
 import android.content.SharedPreferences
+import kotlin.time.Duration.Companion.seconds
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -9,7 +10,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-
 
 /**
  * This is NOT how would do it in a real app! Just in case that wasn't clear :D
@@ -28,18 +28,27 @@ class UserRepository(
 
     init {
         coroutineScope.launch {
-            delay(500) // simulating something that takes a bit longer
+            // Splash screen will stay on while the auth status is determined
+            delay(2.seconds) // simulating something that takes a bit longer
             val loggedInUser = sharedPreferences.getString(LOGGED_IN_USERNAME_KEY, null)
                 ?.let { username ->
                     knownUsers.find { it.username == username }
                 }
 
-            if (loggedInUser == null) {
+            if (loggedInUser == null || isTokenExpired()) {
                 _loggedInUser.update { UserState.LoggedOut }
             } else {
                 _loggedInUser.update { UserState.LoggedIn(loggedInUser) }
             }
         }
+    }
+
+    private fun isTokenExpired(): Boolean {
+        val timestamp = sharedPreferences.getLong(LOGGED_IN_TIMESTAMP, -1)
+            .takeIf { it != -1L }
+            ?: return false
+
+        return System.currentTimeMillis() - timestamp > LOGGED_IN_TOKEN_TTL
     }
 
     suspend fun login(username: String): Result<User> {
@@ -61,6 +70,7 @@ class UserRepository(
     private fun persistLoggedOutState() {
         sharedPreferences.edit().apply {
             remove(LOGGED_IN_USERNAME_KEY)
+            remove(LOGGED_IN_TIMESTAMP)
             apply()
         }
     }
@@ -68,6 +78,7 @@ class UserRepository(
     private fun persistLoggedInState(username: String) {
         sharedPreferences.edit().apply {
             putString(LOGGED_IN_USERNAME_KEY, username)
+            putLong(LOGGED_IN_TIMESTAMP, System.currentTimeMillis())
             apply()
         }
     }
@@ -83,6 +94,8 @@ class UserRepository(
 
     companion object {
         private const val LOGGED_IN_USERNAME_KEY = "LOGGED_IN_USERNAME_KEY"
+        private const val LOGGED_IN_TIMESTAMP = "LOGGED_IN_TIMESTAMP"
+        private const val LOGGED_IN_TOKEN_TTL = 5000
 
         private val knownUsers = listOf(
             User(

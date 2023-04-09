@@ -24,12 +24,12 @@ import kotlinx.coroutines.launch
 fun LoginScreen(
     onLoginClick: () -> Unit,
     onUsernameInputChange: (String) -> Unit,
-    popBackStack: () -> Unit,
+    onLoginComplete: () -> Unit,
     currentState: LoginViewModel.UiState
 ) {
-    LaunchedEffect (currentState.done) {
+    LaunchedEffect(currentState.done) {
         if (currentState.done) {
-            popBackStack()
+            onLoginComplete()
         }
     }
 
@@ -37,7 +37,11 @@ fun LoginScreen(
 
     Box(Modifier.fillMaxSize()) {
         if (currentState.loading) {
-            Text(modifier = Modifier.align(Alignment.Center), textAlign = TextAlign.Center, text = "Logging in...")
+            Text(
+                modifier = Modifier.align(Alignment.Center),
+                textAlign = TextAlign.Center,
+                text = "Logging in..."
+            )
         } else {
             Column(
                 modifier = Modifier.align(Alignment.Center)
@@ -46,7 +50,10 @@ fun LoginScreen(
                     Text(text = stringResource(currentState.error))
                 }
 
-                TextField(value = currentState.currentUsernameInput, onValueChange = onUsernameInputChange)
+                TextField(
+                    value = currentState.currentUsernameInput,
+                    onValueChange = onUsernameInputChange
+                )
                 Button(onClick = onLoginClick) {
                     Text("Login")
                 }
@@ -74,7 +81,12 @@ class LoginViewModel(
             userRepository.loggedInUser.collect { userState ->
                 when (userState) {
                     is UserRepository.UserState.Loading -> _uiState.update { it.copy(loading = true) }
-                    is UserRepository.UserState.LoggedIn -> _uiState.update { it.copy(loading = false, done = true) }
+                    is UserRepository.UserState.LoggedIn -> _uiState.update {
+                        it.copy(
+                            loading = false,
+                            done = true
+                        )
+                    }
                     is UserRepository.UserState.LoggedOut -> Unit
                 }
             }
