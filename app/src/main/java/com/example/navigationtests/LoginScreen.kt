@@ -9,19 +9,48 @@ import androidx.compose.material.Text
 import androidx.compose.material.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.navigationtests.destinations.HomeScreenDestination
+import com.ramcosta.composedestinations.annotation.Destination
+import com.ramcosta.composedestinations.navigation.DestinationsNavigator
+import com.ramcosta.composedestinations.navigation.popUpTo
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+@Destination
 @Composable
 fun LoginScreen(
+    destinationsNavigator: DestinationsNavigator,
+    diContainer: DiContainer = LocalDiContainer.current,
+    viewModel: LoginViewModel = viewModel { LoginViewModel(diContainer) }
+) {
+
+    val currentState = viewModel.uiState.collectAsStateWithLifecycle().value
+
+    LoginScreenContent(
+        onLoginClick = viewModel::onLoginClick,
+        onUsernameInputChange = viewModel::onUsernameInputChange,
+        onLoginComplete = {
+            destinationsNavigator.navigate(HomeScreenDestination) {
+                popUpTo(NavGraphs.root)
+                restoreState = true
+            }
+        },
+        currentState = currentState
+    )
+}
+
+@Composable
+fun LoginScreenContent(
     onLoginClick: () -> Unit,
     onUsernameInputChange: (String) -> Unit,
     onLoginComplete: () -> Unit,
